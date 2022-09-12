@@ -20,11 +20,35 @@ minimum,maximum = get_stats(lengths)
 print(f'Min: {minimum}, Max: {maximum}')
 >>>
 Min: 60, Max: 73
-
 ```
 
 函数返回的其实是个元组(tuple)，同时返回的那两个值就是元组中的两个元素。程序通过把函数返回的元组赋给minimum与mazimum这两个变量来拆解元组，相当于用这两个变量分别接收元组中的两个元素。下面举一个更简单的例子，来演示unpacking语句和返回多个值的函数是怎么使用的。
 
+```py
+first,second = 1,2
+assert first == 1
+assert second == 2
+def my_function():
+    return 1,2
+first,second = my_function()
+assert first == 1
+assert second == 2
+```
 
+在返回多个值的时候，可以用带星号的表达式接收那些没有被普通变量捕获的值(参见13条)。例如，我们还需要写一个函数，用来计算每条鳄鱼的长度与这些鳄鱼的平均长度之比。该函数会把比值放在列表里访问，但我们在接收的时候，可以只接收最长与最短的那两条鳄鱼所对应的比值，而把中间那些鳄鱼的比值用带星号的写法总括。
 
+```py
+lengths = [63,73,72,60,67,66,71,61,72,70]
+def get_avg_ratio(numbers):
+    average = sum(numbers) / len(numbers)
+    scaled = [x/average for x in numbers]
+    scaled.sort(reverse=True)
+    return scaled
+lengths = [63,73,72,60,67,66,71,61,72,70]
+longest,*middle,shortest = get_avg_ratio(lengths)
 
+print(f'Longest:{longest:>4.0%}')
+Longest:108%
+
+print(f'Shortest: {shortest:>4.0%}')
+Shortest:  89%

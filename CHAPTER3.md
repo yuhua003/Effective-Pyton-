@@ -53,6 +53,12 @@ Longest:108%
 >>>
 print(f'Shortest: {shortest:>4.0%}')
 Shortest:  89%
+```
+
+
+> [!NOTE]
+>    - 此处的 `=[x/average for x in numbers]` 应用了**python推导式**中的*列表推导式*，迭代将numbers(也就是lengths中的每个参数依次进行)的值赋值给x，使得运行x/average，并最终将结果赋值给`longest,*middle,shortest`
+>    - `reverse=True`,指定可迭代对象中的一个元素来进行排序，模式为升序(severse=False),可指定降序(reverse=True)。
 
 假设现在需求又变了,我们这次还想知道平均长度、中位长度(长度的中位)以及样本的总数。我们可以扩展原有的get_stats函数，让它把这些指标也计算出来，然后一并通过元组返回给调用方，让调用方自己去拆分
 

@@ -47,8 +47,71 @@ def get_avg_ratio(numbers):
 lengths = [63,73,72,60,67,66,71,61,72,70]
 longest,*middle,shortest = get_avg_ratio(lengths)
 
+>>>
 print(f'Longest:{longest:>4.0%}')
 Longest:108%
-
+>>>
 print(f'Shortest: {shortest:>4.0%}')
 Shortest:  89%
+
+假设现在需求又变了,我们这次还想知道平均长度、中位长度(长度的中位)以及样本的总数。我们可以扩展原有的get_stats函数，让它把这些指标也计算出来，然后一并通过元组返回给调用方，让调用方自己去拆分
+
+```py
+def get_stats(numbers):
+    minimum = min(numbers)
+    maximum = max(numbers)
+    count = len(numbers)
+    average = sum(numbers) / count
+    sorted_numbers = sorted(numbers)
+    middle = count // 2
+    if count % 2 == 0:
+        lower = sorted_numbers[middle - 1]
+        upper = sorted_numbers[middle]
+        median = (lower + upper) / 2
+    else:
+         median = sorted_numbers[middle]
+    return minimum,maximum,average,median,count
+
+
+minimum,maximum,average,median,count = get_stats(lengths)
+
+>>>
+print(f'Min: {minimum},Max: {maximum}')
+Min: 60,Max: 73
+>>>
+print(f'Average: {average},Median: {median},Count: {count}')
+Average: 67.5,Median: 68.5,Count: 10
+```
+
+这样写有两个问题。首先，函数返回的五个值都是数字，所以很容易就会搞错顺序(例如，把平均数average和中位数media弄颠倒了)，这可能让程序出现难以查找的bug。调用方同时受到这么一大堆返回值，也特别容易出错。
+
+```py
+#Correct
+minimum,maximum,average,median,count = get_stats(lengths)
+
+#Oops! Median and average swapped!
+minimum,maximum,median,average,count = get_stats(lengths)
+```
+
+第二个问题是，调用函数并拆分返回值的那行代码会写得比较长，所以按照PEP8风格指南，可能需要拆行(参见第2条)，这让代码看起来很别扭。
+
+```python
+minimum,maximum,average,median,count = get_stats(
+    lengths)
+
+minimum,maximum,average,median,count = \
+    get_stats(lengths)
+
+(minimum,maximum,average,
+median,count) = get_stats(lengths)
+
+(minimum,maximum,average,median,count
+    ) = get_stats(lengths)
+```
+
+为避免这些问题，我们不应该把函数返回的多个值拆分到三个以上的变量里。一个元组最多只拆成三个普通变量，或两个普通变量与一个万能变量(带星号的变量)。当用于接收的变量个数也可以比这更少。假如要拆分的值确实很多，那最好还是定义一个轻量的类或namedtuple(参见第37条)，并让函数返回这样的实例。
+
+> [!IMPORTANT]
+>    - 函数可以把多个值喊起来通过一个元组返回给调用者，以便利用Python的unpacking机制去拆分。
+>    - 对于函数返回的多个值，可以把普通变量没有捕获到的那些值全部捕获到一个带星的变量里。
+>    - 把返回的值拆分到四个或四个以上的变量是很容易出错的，所以最好不要那么写，那是应该通过小类或namedtuple实例完成。

@@ -177,3 +177,26 @@ success,result = careful_divide(x,y)
 if not success:
     print('Invalid imputs')
 ```
+
+但问题是，有些调用方总喜欢忽略返回元组的第一部分(在Python代码里，习惯用下划线表示用不到的变量)。这样写成的代码，乍一看似乎没问题，但实际上还是无法区分返回0与返回None这两种情况。
+
+```python
+_,result = careful_divide(x,y)
+if not result:
+    print('Invalid inputs')
+
+>>>
+Invalid inputs
+```
+
+第二种方法比刚才那种更好，那就是不采用None表示特例，而是向调用方抛出异常(exception)，让他自己去处理。下面我们把执行除法时发生的ZeroDivisionError转化成ValueError告诉调用方输入的值不对(什么时候应该使用Exception类的子类，可参见第83条)。
+
+```python
+def careful_divide(a,b):
+    try:
+        return a/b
+    except ZeroDivisionError:
+        raise ValueError('Invalid inputs')
+```
+
+现在，调用方拿到函数的返回值之后，不用先判断

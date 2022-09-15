@@ -199,4 +199,40 @@ def careful_divide(a,b):
         raise ValueError('Invalid inputs')
 ```
 
-现在，调用方拿到函数的返回值之后，不用先判断
+现在，调用方拿到函数的返回值之后，不用先判断操作是否成功了。因为这次可以假设，只要能拿到返回值，就说明函数肯定顺利执行完了，所以只需要用try把函数包起来并在else块里处理运算结果就好(这种结构的详细用法，参见第63条)。
+
+```python
+x,y=5,2
+try:
+    result = careful_divide(x,y)
+except ValueError:
+    print('Invalid inputs')
+else:
+    print('Result is %.1f' % result)
+
+Result is 2.5
+```
+
+这个办法也可以扩展到那些使用类型注解的代码中(参见第90条)，我们可以把函数的返回值指定为float类型，这样他就不可能返回None了。然而，Python采用的是动态类型与静态类型相搭配的gradual类型系统，我们不能在函数的接口上指定函数可能抛出哪些异常(有的编程语言支持这样的受异常检查(checked exception),调用方必须应对这些异常)。所以，我们只好把有可能抛出的异常写在文档里面，并希望调用方能够根据这份文档适当的捕获相关的异常(参见第84条)。
+
+下面我们给刚才那个函数加类型注解，并为它编写docstring
+
+```py
+def careful_divide(a: float,b: float) -> float:
+    """Divides a by b.
+    
+    Raises:
+        ValueError: when the inputs cannot be divided.
+    """
+    try:
+        return a/b
+    except ZeroDivisionError as e:
+        raise ValueError('Invalid inputs')
+```
+
+这样写，输入，输出与异常都显得很清晰，所以调用方出错的概率就变得很小了。
+
+>[!IMPORTANT]
+>   - 用返回值None表示特殊情况是很容易出错的，因为这样的值在表达式里面，没办法与0和空白字符串之类的值区别，这些值相当于False。
+>   - 用异常表示特殊的情况，而不要返回None。让调用的这个函数的程序根据文档里写的异常情况做出处理。
+>   - 通过类型注解可以明确禁止函数返回None，即便在特殊情况下，它也不能返回这个值。

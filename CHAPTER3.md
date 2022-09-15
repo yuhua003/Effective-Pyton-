@@ -121,3 +121,59 @@ median,count) = get_stats(lengths)
 >    - 函数可以把多个值喊起来通过一个元组返回给调用者，以便利用Python的unpacking机制去拆分。
 >    - 对于函数返回的多个值，可以把普通变量没有捕获到的那些值全部捕获到一个带星的变量里。
 >    - 把返回的值拆分到四个或四个以上的变量是很容易出错的，所以最好不要那么写，那是应该通过小类或namedtuple实例完成。
+
+
+## 第20条 遇到意外状况时应该抛出异常，不要返回None
+
+编写工具函数(utility function)时，许多Python程序员都爱用None这个返回值来表示特殊情况。对于某些函数来说，这或许有几分道理。例如，我们要偏写一个辅助函数计算两数相除的结果。在除数是0的情况下，返回None似乎相当合理，因为这种除法的结果是没有意义的。
+
+```python
+def careful_divide(a,b):
+    try:
+        return a/b
+    except ZeroDivisionError:
+        return None
+```
+调用这个函数时，可以按自己的方式处理这样的返回值
+
+```py
+x,y=1,0
+result = careful_divide(x,y)
+if result is None:
+    print('Invalid inputs')
+
+>>>
+Invalid inputs
+```
+
+如果传给careful_fivide函数的被除数为0，会怎么样呢？在这种情况下，只要除数不为0，函数返回的结果就应该是0。问题是，这个函数的返回值有时可能会用在if条件语句里面，那时可能会根据值本身是否相当于False来做判断，而不像刚才那样明确判断这个值是否为None(第5条叶列举了类似的例子)。
+
+```python
+x,y=0,5
+result=careful_divide(x,y)
+if not result:
+    print('Invalid inputs') #This runs! But shouldn't
+
+>>>
+Invalid inputs
+```
+
+上面这种if语句，会把函数返回0时的情况，也当成函数返回None时那样来处理，这种写法经常出现在Python代码里，因此像careful_divide这样，用None来表示特殊状况的函数很容易出错的。这两种办法可以减少这样的错误。
+
+第一种办法是，利用二元组把计算结果分成两部分返回(与这种写法有关的基础知识，参见第19条)。元组的首个元素表示操作是否成功，第二个元素表示计算的实际值。
+
+```python
+def careful_divide(a,b):
+    try:
+        return True,a/b
+    except ZeroDivisionError:
+        return False,None
+```
+
+这样写，会促使调用函数者去拆分返回值，他可以先看看这次运算是否成功，然后再决定怎么处理运算结果。
+
+```py
+success,result = careful_divide(x,y)
+if not success:
+    print('Invalid imputs')
+```

@@ -496,3 +496,105 @@ Favorite numbers - 7: 33
 >    - 调用函数时，可以在序列左边加上\*操作符，把其中的元素当成位置参数传给*args所表示的这一部分。
 >    - 如果*操作符加在生成器前，那么传递参数时，程序有可能因为耗尽内存而奔溃。
 >    - 给接受*args的函数添加新位置参数，可能导致难以排查的bug。
+
+## 第22条 用数量可变的位置参数给函数设计清晰的参数列表
+
+让函数接受数量可变的位置参数(positional argument),可以把函数设计得更加清晰(这些位置参数通常简称varargs，或者叫作star args，因为我们习惯用*args指代)。例如，假设我们要记录调试信息。如果采用参数数量固定的方案来设计，那么函数应该接受一个表示信息的message参数和一个values列表(这个别表用于存放需要填充到信息里的那些值)。
+
+```python
+def log(message,values):
+    if not values:
+        print(message)
+    else:
+        values_str = ','.join(str(x) for x in values)
+        print(f'{message}: {values_str}')
+
+log('My numbers are',[1,2])
+>>>
+My numbers are: 1,2
+
+log('Hi there',[])
+>>>
+Hi there
+```
+
+即便没有值需要填充到信息里面，也必须专门传一个空白的列表进去，这样显得多余，而且让代码看起来比较乱。最好是能允许调用者把两个参数留空。在Python里，可以给最后一个位置参数加前缀*,这样调用者就只需要提供不带星号的那些参数，然后可以不再指其他参数，也可以继续指定任意数量的位置参数。函数的主题代码不用改，只修改调用代码即可。
+
+```python
+def log(message,*values): # The only difference
+    if not values:
+        print(message)
+    else:
+        values_str = ', '.join(str(x) for x in values)
+        print(f'{message}: {values_str}')
+
+print('My numbers are',1,2)
+My numbers are 1 2
+
+log('Hi there') # Much better
+Hi there
+```
+
+这种写法与拆解数据时用在赋值语句左边带星号的unpacking操作非常类似(参见第13条)。
+
+如果想把已有序列(例如某列表)里面的元素当成参数传给像log这样的参数个数可变的函数(variadic function)，那么可以在传递序列的时采用*操作符。这会让Python把序列种的元素都当成位置参数传给这个函数。
+
+```python
+favorites = [7,33,99]
+log('Favorite colors',*favorites)
+
+>>>
+Favorite colors: 7, 33, 99
+```
+
+令函数接受数量可变的位置参数，可能导致两个问题。
+第一个问题是，程序总是必须先把这些参数转化为一个元组，然后才能把它们当成可选的位置参数传给函数。这意味着，如果调用函数时，把带*操作符的生成器传了过去，那么程序必须先把这个生成器里的所有元素迭代完(以便形成元组)，然后才能继续往下执行(相关知识，参见第30条)。这个元组包含生成器所给出的每个值，这可能耗费大量内存，甚至会让程序崩溃。
+
+```python
+def my_generator():
+    for i in range(10):
+        yield i
+def my_func(*args):
+    print(args)
+it = my_generator()
+my_func(*it)
+
+>>>
+(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+```
+
+接受*\args参数的函数，适合处理输入值不太多，而且数量可以提前预估的情况。在调用这种函数时，传给*args这一部分的应该时许多个字面值或变量名才对。这种机制，主要是为了让代码写起来更方便、读起来更清晰。
+
+第二个问题是，如果用了*args之后，又要给函数添加新的位置参数，那么原有的调用操作就需要全部更新。例如给参数列表开头添加新的位置参数sequence，那么没有据此更新的那些调用代码就会出错。
+
+```python
+def log(sequence,message,*values):
+    if not values:
+        print(f'{sequence} - {message}')
+    else:
+        values_str = ','.join(str(x) for x in values)
+        print(f'{sequence} - {message}: {values_str}')
+
+log (1,'Favorites',7,33) # New with *args Ok
+
+>>>
+1 - Favorites: 7,33
+
+log(1,'Hi there') # New  message only ok
+
+>>>
+1 - Hi there
+
+log('Favorite numbers',7,33) # Old usage breaks
+
+>>>
+Favorite numbers - 7: 33
+```
+
+问题在于：第三次调用log函数的那个地方并没有根据新的参数列表传入sequence参数，所以`Favorite numbers`就变成了sequence参数，7就变成了message参数。这样的bug很难排查，因为程序不会抛出异常，指挥采用错误的数据继续运行下去。为了彻底避免这种漏洞，在给这种*arg函数添加参数时，应该使用只能通过关键字来指定的参数(keyword-only argument,参见第25条)。要是想做得更稳妥一些，可以考虑添加类型注解(参见第90条)
+
+>[!IMPORTANT]
+>   - 用def定义函数时，可以通过*args的写法让函数接受数量可变的位置参数。
+>   - 调用函数时，可以在序列左边加上*/操作符，把其中的元素当成位置参数传给*args所表示的这一部分。
+>   - 如果*操作符加在生成器前，那么传给参数时，程序有可能因为耗尽内存而崩溃。
+>   - 给接受*args的函数添加新位置参数，可能导致难以排查的bug。

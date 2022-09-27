@@ -608,3 +608,94 @@ Favorite numbers - 7: 33
 >   - 调用函数时，可以在序列左边加上*/操作符，把其中的元素当成位置参数传给*args所表示的这一部分。
 >   - 如果*操作符加在生成器前，那么传给参数时，程序有可能因为耗尽内存而崩溃。
 >   - 给接受*args的函数添加新位置参数，可能导致难以排查的bug。
+
+## 第23条 用关键字参数来表示可选的行为
+
+与大多数其他编程语言一样，Python允许在调用函数时，按照位置传递参数。
+
+```python
+def remainder(number,divisor):
+    return number % divisor
+
+assert remainder(20,7) == 6
+```
+
+Python函数里面的所有普通参数，除了按位置传递外，还可以按关键字传递。调用函数时，在调用括号内可以把关键字的名字写在 = 左边，把参数卸载等号右边。这种写法不在乎参数的顺序，只要把必须指定的所有位置参数全部传过去即可。另外，关键字形式与位置形式也可以混用。下面这四种写法的效果相同:
+
+> remainder(20,7)
+> remainder(20,divisor=7)
+> remainder(number=20,divisor=7)
+> remainder(divisor=7,number=20)
+
+如果混用，那么位置参数必须出现在关键字参数之前，否则就会出错。
+
+```python
+remainder(number=20,7)
+
+>>>
+  Cell In [3], line 1
+    remainder(number=20,7)
+                         ^
+SyntaxError: positional argument follows keyword argument
+```
+
+每个参数只能指定一次，不能即通过位置形式指定，又通过关键字形式指定。
+
+```python
+remainder(20,number=7)
+
+>>>
+---------------------------------------------------------------------------
+TypeError                                 Traceback (most recent call last)
+Cell In [4], line 1
+----> 1 remainder(20,number=7)
+
+TypeError: remainder() got multiple values for argument 'number'
+```
+
+如果有一份字典，而且字典里面的内容能够用来调用remainder这样的函数，那么可以把**运算符加在字典前面，这会让Python把字典里面的键值以关键字参数的形式传递给函数。
+
+```python
+my_kwargs = {
+    'number': 20,
+    'divisor': 7,
+}
+assert remainder(**my_kwargs) == 6
+```
+
+调用函数时，带**操作符的参数可以和位置参数或关键字参数混用，只要不重复指定就行。
+
+```python
+my_kwargs = {
+    'divisor': 7,
+}
+assert remainder(number=20,**my_kwargs) == 6
+```
+
+也可以对多个字典分别施加**操作，只要这些字典所提供的参数不重叠就好。
+
+```python
+my_kwargs = {
+    'number': 20,
+}
+other_kwargs = {
+    'divisor': 7,
+}
+assert remainder(**my_kwargs,**other_kwargs) == 6
+```
+
+定义函数时，如果想让这个函数接受任意数量的关键字参数，那么可以在参数列表里写上万能形参**kwargs,它会把调用者传进来的参数收集合到一个字典里面稍后处理(第26条讲了一种特别合适这么做的情况)。
+
+```python
+def print_parameters(**kwargs):
+    for key,value in kwargs.items():
+        print(f'{key} = {value}')
+
+
+print_parameters(alpha=1.5,beta=9,gamma=4)
+
+>>> 
+alpha = 1.5
+beta = 9
+gamma = 4
+```

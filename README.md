@@ -1,2 +1,0 @@
-# Effective-Pyton-
-practice daily

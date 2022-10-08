@@ -780,4 +780,152 @@ pounds_per_hour = flow_rate(weight_diff,time_diff,
 >   - 应该通过带默认值的关键字参数来扩展函数的行为，因为这不会影响原有的函数调用代码。
 >   - 可选的关键字参数总是应该通过参数名来传递，而不应按位置传递。
 
-## 第24条
+## 第24条 用None和docstring来描述默认值会变的参数
+
+有时，我们想把那种不能够提前固定的值，当作关键字参数的默认值。例如，记录日志消息时，默认的时间应该是触发事件的那一刻。所以，如果调用者没有明确指定时间，那么就默认把调用函数的那一刻。所以，如果调用者没有明确指定时间，那么就默认把调用函数的那一刻当成这条日志的记录时间。现在试试下面的这种写法，假定它能让when参数的默认值随着这个函数每次的执行时间而发生变化。
+
+```python
+from time import sleep
+from datetime import datetime
+def log(message,when=datetime.now()):
+    print(f'{when}: {message}')
+
+log('Hi there!')
+
+>>>
+2022-10-08 19:52:51.595821: Hi there!
+
+sleep(0.1)
+log('Hello again!')
+
+>>>
+2022-10-08 19:52:51.595821: Hello again!
+```
+
+这样写不行。因为datetime.now只执行一次，所以每条日志的时间戳(timestamp)相同。参数的默认值只会在系统加载这个模块的时候，计算一遍，而不会在每次执行时都重新计算，这通常意味着这些默认值在程序启动后，就已经定下来了。只要包含这段代码的那个模块已经加载进来，那么when参数的默认值就是加载时计算的那个datetime.now()，系统不会重新计算。
+
+想要在Python里实现这种效果，管用的办法时把参数的默认值设为None，同时在docstring文档里写清楚，这个参数为None时，函数会怎么运作(参见第84条)。给函数写实现代码时，要判断该参数是不是None，如果是，就把它改成相应的默认值。
+
+```python
+def log(message,when=None):
+    """Log a message with a timestamp.
+    Args:
+        message: Message to print.
+        when: datetime of when the message occurred.
+            Defaults to the pressent time.
+    """
+    if when is None:
+        when = datetime.now()
+    print(f'{when}: {message}')
+```
+
+这次，两条日志的时间戳就不一样了。
+
+```python
+log('Hi there!')
+
+>>>
+2022-10-08 20:26:42.833722: Hi there!
+
+sleep(0.1)
+log('Hello again!')
+
+>>>
+2022-10-08 20:27:00.518267: Hello again!
+```
+
+把参数的默认值写成None还有个重要的意义，就是用来表示那种以后可能由调用者修改内容的默认值(例如某个可变的容器)。例如，我们要写一个函数对采用JSON格式编码的数据做解码。如果无法解码，那么就返回调用时所指定的默认结果，假如调用者当时没有明确指定，那就返回空白的字典。
+
+```python
+import json
+def decode(data,default={}):
+    try:
+        return json.loads(data)
+    except ValueError:
+        return default
+```
+
+这样的写法与前面datetime.now的例子有者同样的问题。系统只会计算一次default参数(在加载这个模块的时候)，所以每次调用这个函数时，给调用者返回的都是一开始分配的那个字典，就相当于凡是以默认值调用这个函数的代码都共用一份字典。这会使程序出现很奇怪的效果。
+
+```python
+foo = decode('bad data')
+foo['stuff'] = 5
+bar = decode('also bad')
+bar['meep'] = 1
+
+print('Foo:',foo)
+
+>>>
+Foo: {'stuff': 5, 'meep': 1}
+
+print('Bar:',bar)
+
+>>>
+Bar: {'stuff': 5, 'meep': 1}
+```
+
+我们本意是想让这两次调用操作得到两个不同的空白字典，每个字典都可以分别用来存放不同的键值。但实际上，只要修改其中一个字典，另一个字典的内容就会收到影响这种错误的根源在于，foo和bar实际上是同一个字典，都等于系统一开始给default参数确定默认值时所分配的那个字典。它们表示的时同一个字典对象。
+
+> assert foo is bar
+
+要解决这个问题，可以把默认值设成None，并且在docstring文档里面说明，函数在这个值为None时会这么做。
+
+```python
+def decode(data,default=None):
+    """Load JSON data from a string.
+    
+    Aargs:
+        data: JSON data to decode.
+        default: Value to return if decoding fails.
+    """
+    try:
+        return json.loads(data)
+    except ValueError:
+        if default is None:
+            default = {}
+        return default
+```
+
+这样写，再运行刚才那段测试代码，就可以得出预期的结果了。
+
+
+```python
+foo = decode('bad data')
+foo['stuff'] = 5
+bar = decode('also bad')
+bar['meep'] =1
+
+
+print('Foo:',foo)
+>>>
+Foo: {'stuff': 5}
+
+print('Bar:',bar)
+>>>
+Bar: {'meep': 1}
+
+assert foo is not bar
+```
+
+这个思路可以根类型注解搭配起来(参见第90条)。下面这种写法把when参数标注成可选(Optional)值，并限定其类型为datetime。于是，它的取值就是只有两种可能，要么就是None，要么时datetime对象。
+
+```python
+def log_typed(message:str,
+              when: Optional[datetime]=None) -> None:
+    """Log a message with a timestamp.
+    
+    Args:
+        message: Message to print.
+        when: datetime of when the message occurred.
+           Defaults to the present time.
+    """
+    if when is None:
+        when = datetime.now()
+    print(f'{when}: {message}')
+```
+
+>[!IMPORTANT]
+>   - 参数的默认值只会计算一次，也就是在系统把定义函数的那个模块加载进来的时候。所以，如果默认值将来可能由调用方修改(例如{}、[])或者要随着调用时的情况变化(例如datetime.now())，那么程序就会出现奇怪的效果。
+>   - 如果关键字参数默认值属于这种会发生变化的值，那就应该写成None，并且要在docstring里面描述函数此时的默认行为。
+>   - 默认值为None的关键字参数，也可以添加类型注解。
+

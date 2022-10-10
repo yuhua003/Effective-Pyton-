@@ -929,3 +929,224 @@ def log_typed(message:str,
 >   - 如果关键字参数默认值属于这种会发生变化的值，那就应该写成None，并且要在docstring里面描述函数此时的默认行为。
 >   - 默认值为None的关键字参数，也可以添加类型注解。
 
+## 第25条 用只能以关键字指定和只能按位置传入的参数来设计清晰的参数列表
+
+按关键字传递参数是Python函数的一项强大特性(参见第23条)。这种关键字参数特别灵活，在很多情况下，都能让我们写出一看就懂的函数代码
+
+例如，计算两数相除的结果时，可能需要仔细考虑各种特殊情况。例如，在除数为0的情况下，是抛出ZeroDivisionError异常，还会返回无穷(infinity);在结果溢出的情况下，是抛出OverflowError异常，还是返回0。
+
+```python
+def safe_division(number,divisor,
+                   ignore_overflow,
+                  ignore_zero_division):
+   try:
+      return number / divisor
+   except OverflowError:
+      if ignore_overflow:
+         return 0
+      else:
+         raise
+   except ZeroDivisionError:
+      if ignore_zero_division:
+         return float('inf')
+      else:
+         raise
+
+```
+
+这个函数用起来很直观。如果想在结果溢出的情况下，让它返回0，那么可以像下面这样调用函数。
+
+```python
+result = safe_division(1.0,10**500,True,False)
+
+>>>
+print(result)
+0
+```
+
+如果想在除数是0的情况下，让函数返回无穷，那么就按下面这样来写。
+
+```python
+result = safe_division(1.0,0,False,True)`
+print(result)
+
+>>>
+inf
+```
+
+表示要不要忽略异常的那两个参数都是Boolean值，所以容易弄错位置，这会让程序出现难以查找的bug。要想让代码看起来更清晰，一种办法是给这两个参数都指定默认值。按照默认值，该函数只要遇到特殊情况，就会抛出异常。
+
+```python
+def safe_division_b(number,divisor,
+                    ignore_overflow=False,    #Changed
+                    ignore_zero_division=False):    #Changed
+    ...
+```
+
+调用者可以用关键字参数指定覆盖其中某个参数的默认值，以调整函数在遇到那种特殊情况时的处理方式，同时让另一个参数依然取那个参数自己的默认值。
+
+```python
+result = safe_division_b(1.0,10**500,ignore_overflow=True)
+print(result)
+
+>>>
+None # 书中的结果是0
+
+result = safe_division_b(1.0,0,ignore_zero_division=True)
+print(result)
+
+>>>
+None  #书中的结果是inf
+```
+
+然而，由于这些关键参数是可选的，我们没办法要求调用者必须按照关键字形式来指定这两个参数。他们还是可以用传统的写法，按位置给这个新定义的safe_division_b函数传递参数。
+
+> assert safe_division_b(1.0,10**500,True,False) == 0 ## 书中运行结果没问题，个人运行报错
+
+对于这种参数比较复杂的函数，我们可以声明只能通过关键字指定的参数(keywordonly argument),这样的话，写出来的代码就能清楚地反映调用者的想法了。这种参数只能用关键字来指定，不能按位置传递。
+
+下面就重新定义safe_division函数，让它接受这样的参数。参数列表里的*符号把参数分成两组，左边是位置参数，右边是只能用关键字指定的参数。
+
+```python
+def safe_division_c(number,divisor,*, #Changed
+                    ignore_overflow=False,
+                    ignore_zero_division=False):
+    ...
+
+```
+
+如果按位置给只能用关键字指定的参数传销，那么程序就会出错。
+
+```python
+safe_division_c(1.0,10**500,True,False)
+---------------------------------------------------------------------------
+TypeError                                 Traceback (most recent call last)
+line 1
+----> 1 safe_division_c(1.0,10**500,True,False)
+
+TypeError: safe_division_c() takes 2 positional arguments but 4 were given
+```
+
+当然我们还是可以像前面那样，用关键字参数指定覆盖其中一个参数的默认值(即忽略其中一种特殊情况，并让函数在遇到另一个特殊情况时抛出异常)
+
+```python
+result = safe_division_c(1.0,0,ignore_zero_division=True)
+assert result == float('inf')
+try:
+    result = safe_division_c(1.0,0)
+except ZeroDivisionError:
+    pass #Expected
+```
+
+这样改依然有问题，因为在safe_division_c版本的函数里面，有两个参数(也就是number和divisor)必须由调用者提供。然而，调用者在提供这两个参数时，既可以按位置提供，也可以按关键字提供，还可以把这两种方式混起来用。
+
+```python
+assert safe_division_c(number=2,divisor=5) == 0.4
+assert safe_division_c(number=5,divisor=2) == 0.4
+assert safe_division_c(2,divisor=5) == 0.4
+```
+
+在未来也许因为扩展函数的需要，甚至是因为代码风格的变化，或许要修改这两个参数的名字。
+
+```python
+def safe_division_c(numerator,denominator,*, # Changed
+                    ignore_overflow=False,
+                    ignore_zero_division=False):
+    ...
+```
+
+这看起来只是文字上面的微调，但之前所有通过关键字形式来指定这两个参数的调用代码，都会出错
+
+```python
+safe_division_c(number=2,divisor=5)
+---------------------------------------------------------------------------
+TypeError                                 Traceback (most recent call last)
+line 1
+----> 1 safe_division_c(number=2,divisor=5)
+
+TypeError: safe_division_c() got an unexpected keyword argument 'number'
+```
+
+其实最重要的问题在于，我们根本就没打算把number和divisor这两个名称纳入函数的接口；我们只是编写函数的实现代码时，随意挑了这两个比较顺口的名称而已。也并不期望调用者也非得采用这种称呼来指定这两个参数。
+
+Python 3.8引入了一项新特性，可以解决这个问题，这就是只能按位置传递的参数(positional-only argument)。这种参数与刚才的只能通过关键字指定的参数(keyword-only argument)相反，它们必须按位置指定，绝不能通过关键字形式指定。
+
+```python
+def safe_division_d(numerator,denominator,/,*, #Change
+                    ignore_overflow=False,
+                    ignore_zero_division=False):
+    ...
+```
+
+下面来验证一下，看看调用者按照位置提供了两个参数后，能否得到正确结果。
+
+```python
+In [38]: assert safe_division_d(2,5) == 0.4
+---------------------------------------------------------------------------
+AssertionError                            Traceback (most recent call last)
+Cell In [38], line 1
+----> 1 assert safe_division_d(2,5) == 0.4
+
+AssertionError: 
+```
+
+假如调用者是通过关键字形式指定这两个参数的，那么程序就会在运行时抛出异常。
+
+```python
+In [39]: safe_division_d(numerator=2,denominator=5)
+---------------------------------------------------------------------------
+TypeError                                 Traceback (most recent call last)
+Cell In [39], line 1
+----> 1 safe_division_d(numerator=2,denominator=5)
+
+TypeError: safe_division_d() got some positional-only arguments passed as keyword arguments: 'numerator, denominator'
+```
+
+现在我们可以确信：给safe_division_d函数的前两个参数(也就是那两个必备的参数)所挑选的名称，已经与调用者的代码解耦了。即便以后再次修改这两个参数的名称，也不会影响已经写好的调用代码。
+
+在函数的参数列表之中，/符号左侧的参数只能按位置 指定的参数，*符号右侧的参数则是只能按关键字形式指定的参数。那么，这两个符号如果同时出现在参数列表中，会有什么效果呢?这是个值得注意的问题。这意味着，这两个符号之间的参数，既可以按位置提供，又可以用关键字形式指定(其实，如果不特别说明Python函数的参数全都属于这种参数)。在设计API时，为了体现某编程风格或者实现某些需求，可能会允许某些参数既可以按位置传递，也可以用关键字形式指定，这样就可以让代码简单易读。例如，给下面这个safe_division函数的参数列表添加一个可选的ndigits参数，允许调用者指定这次除法应该精确到小数点后几位。
+
+```python
+def safe_division_e(numerator,denominator,/,
+                    ndigits=10,*,
+                    ignore_overflow=False,
+                    ignore_zero_division=False):
+    try:
+        fraction = numerator / denominator    #Change
+        return round(fraction,ndigits)
+    except OverflowError:
+        if ignore_overflow:
+            return 0
+        else:
+            raise
+    except ZeroDivisionError:
+        if ignore_zero_division:
+            return float('inf')
+        else:
+            raise
+```
+
+
+下面我们用三种方式来调用这个safe_division_e函数。ndigits是个带默认值的普通函数，因此，它既可以按位置传递，也可以用关键字来指定，还可以直接省略。
+
+```python
+result = safe_division_e(22,7)
+print(result)
+>>>
+3.1428571429
+
+result = safe_division_e(22,7,5)
+print(result)
+>>>
+3.14286
+
+result = safe_division_e(22,7,ndigits=2)
+print(result)
+>>>
+3.14
+```
+
+>[!IMPORTANT]
+>    - keyword-only argument 是一种只能通过关键字指定而不能通过位置指定的函数。这种迫使调用者必须指明，这个值是传给哪个参数的。在函数的参数列表中，这种参数位于*符号的右侧。
+>    - Positional-only argument是这样一种参数，它不允许调用者通过关键字来指定，而是要求必须按位置传递。这可以降低调用代码与参数名称之间的耦合程度。在函数的参数列表中，这些参数位于/符号的左侧。
+>    - 在参数列表中，位于/与*之间的参数，可以按位置指定，也可以用关键字来指定。这也是Python普通参数的默认指定方式。
